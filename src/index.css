@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 16px; /* Base font size */
+  }
+  
+  body {
+    font-size: 1rem; /* Uses the base 16px */
+  }
+}
+
+@layer components {
+  /* Semantic classes for better readability */
+  .text-important {
+    @apply text-high font-bold;
+  }
+  
+  .text-highlight {
+    @apply font-bold;
+  }
+  
+  .text-body {
+    @apply text-normal;
+  }
+}
