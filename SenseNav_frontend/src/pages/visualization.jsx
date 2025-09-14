@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import humanBodyImage from '../assets/human body imagecut.png';
 import SpatialAudioVisualization from '../components/SpatialAudioVisualization';
+import SpatialAudioPlayer from '../components/SpatialAudioPlayer';
 import NavigationMusicBox from '../components/NavigationMusicBox';
 
 const Visualization = () => {
@@ -179,7 +180,7 @@ const Visualization = () => {
           </section>
 
           {/* Navigation Music Box Section */}
-          <NavigationMusicBox modelPath="/models/soundhead.glb" />
+          {/* <NavigationMusicBox modelPath="/models/soundhead.glb" /> */}
           {/* Navigation Status Section */}
             <section className="bg-gray-900 border border-gray-800 rounded-lg p-6">
             <h2 className="text-high mb-4 text-white">Navigation Status</h2>
@@ -206,6 +207,9 @@ const Visualization = () => {
 
           {/* Spatial Audio Detection Section */}
           <SpatialAudioVisualization />
+
+          {/* Spatial Audio Test Player Section */}
+          <SpatialAudioPlayer />
         </main>
       </div>
     </div>
