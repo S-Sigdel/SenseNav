@@ -1,5 +1,5 @@
 import React from 'react';
-import Model3D from './Model3D';
+// import Model3D from './Model3D';
 
 export default function ExampleModelUsage() {
   return (
@@ -18,20 +18,20 @@ export default function ExampleModelUsage() {
       {/* Scaled and positioned model */}
       <div className="bg-white rounded-lg shadow-lg p-4">
         <h2 className="text-xl font-semibold mb-4">Scaled Model</h2>
-        <Model3D 
+        {/* <Model3D 
           modelPath="/models/your-model.glb"
           height="300px"
           scale={0.5}
           position={[0, -1, 0]}
           cameraPosition={[3, 3, 3]}
-        />
+        /> */}
       </div>
       
       {/* Side-by-side models */}
       <div className="bg-white rounded-lg shadow-lg p-4">
         <h2 className="text-xl font-semibold mb-4">Multiple Models</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Model3D 
+          {/* <Model3D 
             modelPath="/models/your-model.glb"
             height="250px"
             scale={0.8}
@@ -41,7 +41,7 @@ export default function ExampleModelUsage() {
             height="250px"
             scale={1.2}
             cameraPosition={[-3, 2, 3]}
-          />
+          /> */}
         </div>
       </div>
     </div>

@@ -1,11 +1,35 @@
 import React, { useState, useEffect } from 'react';
 
-const SpatialAudioVisualization = () => {
+const SpatialAudioVisualization = ({ centroidData }) => {
   const [spatialData, setSpatialData] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioContext, setAudioContext] = useState(null);
+  const [selectedTestCase, setSelectedTestCase] = useState(null);
 
-  // Mock data for demonstration - replace with actual API calls
+  // Initialize audio context
+  useEffect(() => {
+    const initAudio = async () => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        setAudioContext(ctx);
+      } catch (error) {
+        console.error('Failed to initialize audio context:', error);
+      }
+    };
+    initAudio();
+  }, []);
+
+  // Debug centroid data (reduced frequency)
+  useEffect(() => {
+    if (centroidData && Math.random() < 0.1) { // Only log 10% of updates
+      console.log('SpatialAudioVisualization received centroid:', centroidData);
+    }
+  }, [centroidData]);
+
+  // Enhanced mock data with more test cases
   const mockSpatialData = {
     obstacles: {
       FL: {
@@ -25,26 +49,98 @@ const SpatialAudioVisualization = () => {
         azimuth_deg: 10.0,
         elevation_deg: 35.0,
         audio_params: { frequency: 800, tremolo_rate: 5.0, gain: 0.9 }
+      },
+      BL: {
+        distance: 3.2,
+        azimuth_deg: 135.0,
+        elevation_deg: -10.0,
+        audio_params: { frequency: 450, tremolo_rate: 2.8, gain: 0.5 }
+      },
+      BR: {
+        distance: 2.8,
+        azimuth_deg: -120.0,
+        elevation_deg: -5.0,
+        audio_params: { frequency: 520, tremolo_rate: 3.5, gain: 0.6 }
+      },
+      DOWN: {
+        distance: 1.2,
+        azimuth_deg: 0.0,
+        elevation_deg: -45.0,
+        audio_params: { frequency: 300, tremolo_rate: 6.0, gain: 0.9 }
       }
     },
-    targets: [
-      {
-        sector: "UP",
-        distance: 1.5,
-        azimuth_deg: 10.0,
-        elevation_deg: 35.0,
-        audio_params: { frequency: 800, tremolo_rate: 5.0, gain: 0.9 }
-      },
-      {
-        sector: "FR",
-        distance: 1.8,
-        azimuth_deg: -30.0,
-        elevation_deg: 5.0,
-        audio_params: { frequency: 720, tremolo_rate: 4.1, gain: 0.8 }
-      }
-    ],
-    total_obstacles: 3
+    total_obstacles: 6
   };
+
+  // Test cases for different scenarios
+  const testCases = [
+    {
+      id: 'close_obstacle',
+      name: 'Close Obstacle Test',
+      description: 'High frequency, high intensity audio for nearby obstacle',
+      data: {
+        distance: 0.8,
+        azimuth_deg: 0.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 900, tremolo_rate: 8.0, gain: 1.0 }
+      }
+    },
+    {
+      id: 'far_obstacle',
+      name: 'Far Obstacle Test',
+      description: 'Low frequency, low intensity audio for distant obstacle',
+      data: {
+        distance: 5.0,
+        azimuth_deg: 90.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 200, tremolo_rate: 1.5, gain: 0.3 }
+      }
+    },
+    {
+      id: 'above_obstacle',
+      name: 'Above Obstacle Test',
+      description: 'High frequency audio for overhead obstacle',
+      data: {
+        distance: 2.0,
+        azimuth_deg: 0.0,
+        elevation_deg: 60.0,
+        audio_params: { frequency: 850, tremolo_rate: 4.5, gain: 0.8 }
+      }
+    },
+    {
+      id: 'below_obstacle',
+      name: 'Below Obstacle Test',
+      description: 'Low frequency audio for ground-level obstacle',
+      data: {
+        distance: 1.5,
+        azimuth_deg: 0.0,
+        elevation_deg: -30.0,
+        audio_params: { frequency: 250, tremolo_rate: 3.0, gain: 0.7 }
+      }
+    },
+    {
+      id: 'left_obstacle',
+      name: 'Left Side Test',
+      description: 'Audio panned to left side',
+      data: {
+        distance: 2.5,
+        azimuth_deg: -90.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 600, tremolo_rate: 3.8, gain: 0.6 }
+      }
+    },
+    {
+      id: 'right_obstacle',
+      name: 'Right Side Test',
+      description: 'Audio panned to right side',
+      data: {
+        distance: 2.5,
+        azimuth_deg: 90.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 600, tremolo_rate: 3.8, gain: 0.6 }
+      }
+    }
+  ];
 
   const testConnection = async () => {
     setLoading(true);
@@ -103,6 +199,113 @@ const SpatialAudioVisualization = () => {
     return 'Low';
   };
 
+  // Generate and play spatial audio for test cases
+  const generateTestAudio = async (testCase) => {
+    if (!audioContext || isPlayingAudio) return;
+
+    try {
+      setIsPlayingAudio(true);
+      setSelectedTestCase(testCase.id);
+      
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // Create oscillator for the main tone
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const pannerNode = audioContext.createPanner();
+
+      // Set up the audio graph
+      oscillator.connect(gainNode);
+      gainNode.connect(pannerNode);
+      pannerNode.connect(audioContext.destination);
+
+      // Configure oscillator
+      oscillator.frequency.setValueAtTime(testCase.data.audio_params.frequency, audioContext.currentTime);
+      oscillator.type = 'sine';
+
+      // Configure panning based on azimuth
+      const panValue = Math.sin(testCase.data.azimuth_deg * Math.PI / 180);
+      pannerNode.panningModel = 'equalpower';
+      pannerNode.setPosition(panValue, 0, 0);
+
+      // Configure volume
+      const volume = testCase.data.audio_params.gain;
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 2);
+
+      // Play the audio
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 2);
+
+      // Reset playing state after audio finishes
+      setTimeout(() => {
+        setIsPlayingAudio(false);
+        setSelectedTestCase(null);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error generating test audio:', error);
+      setIsPlayingAudio(false);
+      setSelectedTestCase(null);
+    }
+  };
+
+  // Generate audio for detected obstacles
+  const generateObstacleAudio = async (sector, obstacleData) => {
+    if (!audioContext || isPlayingAudio) return;
+
+    try {
+      setIsPlayingAudio(true);
+      
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // Create oscillator for the main tone
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const pannerNode = audioContext.createPanner();
+
+      // Set up the audio graph
+      oscillator.connect(gainNode);
+      gainNode.connect(pannerNode);
+      pannerNode.connect(audioContext.destination);
+
+      // Configure oscillator
+      oscillator.frequency.setValueAtTime(obstacleData.audio_params.frequency, audioContext.currentTime);
+      oscillator.type = 'sine';
+
+      // Configure panning based on azimuth
+      const panValue = Math.sin(obstacleData.azimuth_deg * Math.PI / 180);
+      pannerNode.panningModel = 'equalpower';
+      pannerNode.setPosition(panValue, 0, 0);
+
+      // Configure volume
+      const volume = obstacleData.audio_params.gain;
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 2);
+
+      // Play the audio
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 2);
+
+      // Reset playing state after audio finishes
+      setTimeout(() => {
+        setIsPlayingAudio(false);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error generating obstacle audio:', error);
+      setIsPlayingAudio(false);
+    }
+  };
+
   return (
     <section className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
       <div className="flex justify-between items-center mb-4">
@@ -121,11 +324,45 @@ const SpatialAudioVisualization = () => {
           <span className="ml-3 text-gray-400">Loading spatial data...</span>
         </div>
       ) : spatialData ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Obstacle Detection Grid */}
+        <div className="space-y-6">
+          {/* Test Cases Section */}
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <h3 className="text-base font-bold text-white mb-4">🧪 Audio Test Cases</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {testCases.map((testCase) => (
+                <div key={testCase.id} className="bg-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-white text-sm font-semibold">{testCase.name}</h4>
+                    <button
+                      onClick={() => generateTestAudio(testCase)}
+                      disabled={isPlayingAudio}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                        isPlayingAudio && selectedTestCase === testCase.id
+                          ? 'bg-blue-600 text-white cursor-not-allowed'
+                          : isPlayingAudio
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                    >
+                      {isPlayingAudio && selectedTestCase === testCase.id ? 'Playing...' : 'Test Audio'}
+                    </button>
+                  </div>
+                  <p className="text-gray-400 text-xs mb-2">{testCase.description}</p>
+                  <div className="grid grid-cols-2 gap-1 text-xs text-gray-300">
+                    <div><span className="text-gray-400">Freq:</span> {testCase.data.audio_params.frequency}Hz</div>
+                    <div><span className="text-gray-400">Gain:</span> {testCase.data.audio_params.gain}</div>
+                    <div><span className="text-gray-400">Azimuth:</span> {testCase.data.azimuth_deg}°</div>
+                    <div><span className="text-gray-400">Elevation:</span> {testCase.data.elevation_deg}°</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Detected Obstacles Grid
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
             <h3 className="text-base font-bold text-white mb-3">Detected Obstacles</h3>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {Object.entries(spatialData.obstacles).map(([sector, data]) => (
                 <div key={sector} className="bg-gray-700 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
@@ -133,9 +370,22 @@ const SpatialAudioVisualization = () => {
                       <div className={`w-3 h-3 rounded-full ${getSectorColor(sector)}`}></div>
                       <span className="text-white font-medium">{getSectorName(sector)}</span>
                     </div>
-                    <span className="text-xs text-gray-400">
-                      {data.distance.toFixed(1)}m
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">
+                        {data.distance.toFixed(1)}m
+                      </span>
+                      <button
+                        onClick={() => generateObstacleAudio(sector, data)}
+                        disabled={isPlayingAudio}
+                        className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                          isPlayingAudio
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        🔊
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
                     <div>
@@ -154,43 +404,7 @@ const SpatialAudioVisualization = () => {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Priority Targets */}
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-            <h3 className="text-base font-bold text-white mb-3">Priority Targets</h3>
-            <div className="space-y-3">
-              {spatialData.targets.map((target, index) => (
-                <div key={index} className="bg-gray-700 rounded-lg p-3 border-l-4 border-red-500">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
-                        #{index + 1}
-                      </span>
-                      <span className="text-white font-medium">{getSectorName(target.sector)}</span>
-                    </div>
-                    <span className="text-xs text-red-400 font-bold">
-                      PRIORITY
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-                    <div>
-                      <span className="text-gray-400">Distance:</span> {target.distance.toFixed(1)}m
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Direction:</span> {target.azimuth_deg.toFixed(0)}°
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Audio Freq:</span> {target.audio_params.frequency.toFixed(0)}Hz
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Tremolo:</span> {target.audio_params.tremolo_rate.toFixed(1)}Hz
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          </div> */}
         </div>
       ) : (
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
@@ -204,14 +418,15 @@ const SpatialAudioVisualization = () => {
         </div>
       )}
 
+
       {/* Audio Status Indicator */}
       <div className="mt-4 bg-gray-800 border border-gray-700 rounded-lg p-3">
         <div className="flex items-center justify-between">
           <span className="text-white text-sm">Spatial Audio System</span>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <div className={`w-2 h-2 rounded-full ${centroidData ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
             <span className="text-xs text-green-400">
-              {spatialData ? `${spatialData.total_obstacles} obstacles detected` : 'Waiting for data...'}
+              {centroidData ? `Connected to depth detection` : 'Waiting for depth detection...'}
             </span>
           </div>
         </div>

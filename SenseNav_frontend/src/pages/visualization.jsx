@@ -1,8 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import humanBodyImage from '../assets/human body imagecut.png';
 import SpatialAudioVisualization from '../components/SpatialAudioVisualization';
-import SpatialAudioPlayer from '../components/SpatialAudioPlayer';
 import NavigationMusicBox from '../components/NavigationMusicBox';
+import WebRTCCamera from '../components/WebRTCCamera';
+import DirectCameraFeed from '../components/DirectCameraFeed';
+import SimpleMeshVisualization from '../components/SimpleMeshVisualization';
+import DepthEstimationView from '../components/DepthEstimationView';
+
+// Helper functions for directional audio mapping
+const getDirectionalPan = (horizontal) => {
+  const panMap = {
+    'Far Left': 'Hard Left (-1.0)',
+    'Left': 'Left (-0.6)',
+    'Center-Left': 'Slight Left (-0.3)',
+    'Center-Right': 'Slight Right (+0.3)',
+    'Right': 'Right (+0.6)',
+    'Far Right': 'Hard Right (+1.0)'
+  };
+  return panMap[horizontal] || 'Center (0.0)';
+};
+
+const getDirectionalPitch = (vertical) => {
+  const pitchMap = {
+    'Far Top': 'Very High (800Hz)',
+    'Top': 'High (600Hz)',
+    'Center-Top': 'Mid-High (500Hz)',
+    'Center-Bottom': 'Mid-Low (400Hz)',
+    'Bottom': 'Low (300Hz)',
+    'Far Bottom': 'Very Low (200Hz)'
+  };
+  return pitchMap[vertical] || 'Medium (400Hz)';
+};
+
+const getDirectionalVolume = (distance) => {
+  const volumeMap = {
+    'Very Close': 'Loud (0.9)',
+    'Close': 'Medium-High (0.7)',
+    'Medium': 'Medium (0.5)',
+    'Far': 'Low (0.3)',
+    'Very Far': 'Very Low (0.1)'
+  };
+  return volumeMap[distance] || 'Medium (0.5)';
+};
+
+const getDirectionalTone = (combined) => {
+  // Map specific combinations to unique tones
+  if (combined.includes('Far Left')) return 'Bass Left';
+  if (combined.includes('Far Right')) return 'Bass Right';
+  if (combined.includes('Far Top')) return 'Treble High';
+  if (combined.includes('Far Bottom')) return 'Bass Low';
+  if (combined.includes('Center')) return 'Balanced';
+  if (combined.includes('Very Close')) return 'Sharp';
+  if (combined.includes('Very Far')) return 'Muffled';
+  return 'Standard';
+};
 
 const Visualization = () => {
   // State to track which wristbands are active (for demo purposes)
@@ -12,6 +63,123 @@ const Visualization = () => {
     leftFoot: false,
     rightFoot: false
   });
+
+  // State for depth estimation data
+  const [centroidData, setCentroidData] = useState(null);
+  
+  // State for audio generation
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioContext, setAudioContext] = useState(null);
+
+  // Initialize audio context
+  useEffect(() => {
+    const initAudio = async () => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        setAudioContext(ctx);
+      } catch (error) {
+        console.error('Failed to initialize audio context:', error);
+      }
+    };
+    initAudio();
+  }, []);
+
+  // Debug centroid data updates (reduced frequency)
+  useEffect(() => {
+    if (centroidData && Math.random() < 0.1) { // Only log 10% of updates
+      console.log('Centroid data received in visualization:', centroidData);
+    }
+  }, [centroidData]);
+
+  // Generate and play spatial audio based on obstacle direction
+  const generateAndPlayAudio = async () => {
+    if (!centroidData || !audioContext || isPlayingAudio) return;
+
+    try {
+      setIsPlayingAudio(true);
+      
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // Create oscillator for the main tone
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const pannerNode = audioContext.createPanner();
+
+      // Set up the audio graph
+      oscillator.connect(gainNode);
+      gainNode.connect(pannerNode);
+      pannerNode.connect(audioContext.destination);
+
+      // Configure oscillator based on vertical position
+      const frequency = getFrequencyFromDirection(centroidData.direction.vertical);
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      oscillator.type = 'sine';
+
+      // Configure panning based on horizontal position
+      const panValue = getPanValueFromDirection(centroidData.direction.horizontal);
+      pannerNode.panningModel = 'equalpower';
+      pannerNode.setPosition(panValue, 0, 0);
+
+      // Configure volume based on distance
+      const volume = getVolumeFromDirection(centroidData.direction.distance);
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 2);
+
+      // Play the audio
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 2);
+
+      // Reset playing state after audio finishes
+      setTimeout(() => {
+        setIsPlayingAudio(false);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      setIsPlayingAudio(false);
+    }
+  };
+
+  // Helper functions for audio parameters
+  const getFrequencyFromDirection = (vertical) => {
+    const freqMap = {
+      'Far Top': 800,
+      'Top': 600,
+      'Center-Top': 500,
+      'Center-Bottom': 400,
+      'Bottom': 300,
+      'Far Bottom': 200
+    };
+    return freqMap[vertical] || 400;
+  };
+
+  const getPanValueFromDirection = (horizontal) => {
+    const panMap = {
+      'Far Left': -1.0,
+      'Left': -0.6,
+      'Center-Left': -0.3,
+      'Center-Right': 0.3,
+      'Right': 0.6,
+      'Far Right': 1.0
+    };
+    return panMap[horizontal] || 0;
+  };
+
+  const getVolumeFromDirection = (distance) => {
+    const volumeMap = {
+      'Very Close': 0.9,
+      'Close': 0.7,
+      'Medium': 0.5,
+      'Far': 0.3,
+      'Very Far': 0.1
+    };
+    return volumeMap[distance] || 0.5;
+  };
 
   return (
     <div className="min-h-screen bg-black p-6">
@@ -25,40 +193,92 @@ const Visualization = () => {
         
         <main>
 
-          {/* Live Video Feeds Section */}
+          {/* Depth Estimation Section */}
           <section className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
-            <h2 className="text-high mb-4 text-white">Live Video Feeds</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <h3 className="text-base font-bold text-white mb-3">LiDAR Environmental Scan</h3>
-                <div className="bg-black border border-gray-600 rounded-lg h-64 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-blue-500 rounded-full mx-auto mb-3 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-400 text-sm">Live LiDAR Feed</p>
-                    <p className="text-gray-500 text-xs mt-1">Waiting for backend connection...</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <h3 className="text-base font-bold text-white mb-3">3D Mesh Visualization</h3>
-                <div className="bg-black border border-gray-600 rounded-lg h-64 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-green-500 rounded-full mx-auto mb-3 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-400 text-sm">3D Mesh Processing</p>
-                    <p className="text-gray-500 text-xs mt-1">Waiting for backend connection...</p>
-                  </div>
-                </div>
+            <h2 className="text-high mb-4 text-white">Depth Estimation & Obstacle Detection</h2>
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+              <h3 className="text-base font-bold text-white mb-3">RGB Camera | Depth Map with Centroid Tracking</h3>
+              <div className="bg-black border border-gray-600 rounded-lg h-96 overflow-hidden">
+                <DepthEstimationView onCentroidUpdate={setCentroidData} />
               </div>
             </div>
+            
+            {/* Dynamic Centroid Data Display - Right Below Camera */}
+            {centroidData && (
+              <div className="mt-4 bg-blue-900 border border-blue-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-white text-sm font-semibold">🎯 Live Obstacle Centroid Detection</h4>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-400">Live</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-800 rounded-lg p-3">
+                    <h5 className="text-blue-200 text-xs font-semibold mb-2">Position</h5>
+                    <p className="text-white text-lg font-mono">
+                      X: {centroidData.x}px
+                    </p>
+                    <p className="text-white text-lg font-mono">
+                      Y: {centroidData.y}px
+                    </p>
+                  </div>
+                  <div className="bg-blue-800 rounded-lg p-3">
+                    <h5 className="text-blue-200 text-xs font-semibold mb-2">Area</h5>
+                    <p className="text-white text-lg font-mono">
+                      {centroidData.area}px²
+                    </p>
+                    <p className="text-blue-300 text-xs">
+                      Bounding Box: {centroidData.bbox.width}×{centroidData.bbox.height}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Directional Classification */}
+                <div className="mt-3 bg-blue-800 rounded-lg p-3">
+                  <h5 className="text-blue-200 text-xs font-semibold mb-2">🎯 Directional Classification</h5>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-blue-300">Horizontal:</span>
+                      <span className="text-white ml-1 font-semibold">{centroidData.direction.horizontal}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-300">Vertical:</span>
+                      <span className="text-white ml-1 font-semibold">{centroidData.direction.vertical}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-300">Distance:</span>
+                      <span className="text-white ml-1 font-semibold">{centroidData.direction.distance}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-300">Combined:</span>
+                      <span className="text-white ml-1 font-semibold text-xs">{centroidData.direction.combined}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 bg-blue-800 rounded-lg p-3">
+                  <h5 className="text-blue-200 text-xs font-semibold mb-2">🎵 Directional Audio Parameters</h5>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-blue-300">Pan (L/R):</span>
+                      <span className="text-white ml-1 font-semibold">{getDirectionalPan(centroidData.direction.horizontal)}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-300">Pitch (T/B):</span>
+                      <span className="text-white ml-1 font-semibold">{getDirectionalPitch(centroidData.direction.vertical)}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-300">Volume:</span>
+                      <span className="text-white ml-1 font-semibold">{getDirectionalVolume(centroidData.direction.distance)}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-300">Tone:</span>
+                      <span className="text-white ml-1 font-semibold">{getDirectionalTone(centroidData.direction.combined)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Haptic Feedback Section */}
@@ -181,35 +401,67 @@ const Visualization = () => {
 
           {/* Navigation Music Box Section */}
           {/* <NavigationMusicBox modelPath="/models/soundhead.glb" /> */}
-          {/* Navigation Status Section */}
-            <section className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-            <h2 className="text-high mb-4 text-white">Navigation Status</h2>
+          {/* Directed Obstacle Direction & Audio Generation Section */}
+          <section className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+            <h2 className="text-high mb-4 text-white">🎯 Directed Obstacle Direction</h2>
             <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-gray-700 rounded-lg p-3 text-center">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full mx-auto mb-2"></div>
-                  <p className="text-white text-xs font-semibold">System Ready</p>
-                  <p className="text-gray-400 text-xs">Active</p>
+              {centroidData ? (
+                <div className="space-y-4">
+                  {/* Current Direction Display */}
+                  <div className="bg-blue-900 border border-blue-700 rounded-lg p-4">
+                    <h3 className="text-white text-lg font-semibold mb-3">Current Obstacle Direction</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-blue-800 rounded-lg p-3 text-center">
+                        <div className="text-2xl mb-2">🎯</div>
+                        <p className="text-white text-sm font-semibold">Direction</p>
+                        <p className="text-blue-300 text-lg font-bold">{centroidData.direction.combined}</p>
+                      </div>
+                      <div className="bg-blue-800 rounded-lg p-3 text-center">
+                        <div className="text-2xl mb-2">📍</div>
+                        <p className="text-white text-sm font-semibold">Position</p>
+                        <p className="text-blue-300 text-lg font-bold">({centroidData.x}, {centroidData.y})</p>
+                      </div>
+                      <div className="bg-blue-800 rounded-lg p-3 text-center">
+                        <div className="text-2xl mb-2">📏</div>
+                        <p className="text-white text-sm font-semibold">Area</p>
+                        <p className="text-blue-300 text-lg font-bold">{centroidData.area}px²</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Audio Generation Button */}
+                  <div className="bg-green-900 border border-green-700 rounded-lg p-4">
+                    <h3 className="text-white text-lg font-semibold mb-3">🎵 Generate Spatial Audio</h3>
+                    <div className="text-center">
+                      <p className="text-green-300 text-sm mb-4">
+                        Generate spatial audio based on the current obstacle direction and position.
+                      </p>
+                      <button
+                        onClick={generateAndPlayAudio}
+                        disabled={isPlayingAudio}
+                        className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-200 ${
+                          isPlayingAudio
+                            ? 'bg-gray-600 cursor-not-allowed'
+                            : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
+                        }`}
+                      >
+                        {isPlayingAudio ? '🔊 Playing Audio...' : '🎵 Generate & Play Audio'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-gray-700 rounded-lg p-3 text-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
-                  <p className="text-white text-xs font-semibold">Navigation Active</p>
-                  <p className="text-gray-400 text-xs">Tracking</p>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-4">🎯</div>
+                  <h3 className="text-white text-lg font-semibold mb-2">No Obstacle Detected</h3>
+                  <p className="text-gray-400">Move an object in front of the camera to see directional classification and generate spatial audio.</p>
                 </div>
-                <div className="bg-gray-700 rounded-lg p-3 text-center">
-                  <div className="w-3 h-3 bg-purple-500 rounded-full mx-auto mb-2"></div>
-                  <p className="text-white text-xs font-semibold">Audio Feedback</p>
-                  <p className="text-gray-400 text-xs">Enabled</p>
-                </div>
-              </div>
+              )}
             </div>
           </section>
 
           {/* Spatial Audio Detection Section */}
-          <SpatialAudioVisualization />
-
-          {/* Spatial Audio Test Player Section */}
-          <SpatialAudioPlayer />
+          <SpatialAudioVisualization centroidData={centroidData} />
         </main>
       </div>
     </div>
