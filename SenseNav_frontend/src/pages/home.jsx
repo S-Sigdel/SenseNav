@@ -11,10 +11,10 @@ const Home = ({ setCurrentPage }) => {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-6xl font-bold text-white mb-6 leading-tight">
-            Making the world accessible for the blind
+            Making the world accessible for the visually impaired
           </h1>
           <p className="text-2xl text-gray-300 mb-8 leading-relaxed">
-            Through LiDAR, sound, and haptic feedback
+            Through OpenCV, Open3D, sound, and haptic feedback
           </p>
           <p className="text-lg text-gray-400 mb-12 max-w-3xl mx-auto">
             SenseNav is an assistive technology project designed to help visually impaired individuals 
@@ -45,9 +45,9 @@ const Home = ({ setCurrentPage }) => {
             <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
               <h3 className="text-xl font-bold text-white mb-4">🌐 Real-Time Environmental Awareness</h3>
               <ul className="text-gray-300 space-y-2">
-                <li>• <span className="text-blue-400">LiDAR scanning:</span> Captures the "range of vision" in real-time</li>
-                <li>• <span className="text-blue-400">3D Mesh Reconstruction:</span> Processes LiDAR data into dynamic 3D models</li>
-                <li>• <span className="text-blue-400">Auditory Visualization:</span> Converts spatial data into binaural beats</li>
+                <li>• <span className="text-blue-400">Intel's Open Source Deep Learning Model MiDaS:</span> AI-powered real-time "range of vision"</li>
+                <li>• <span className="text-blue-400">3D Mesh Reconstruction (Open3D):</span> Dynamic spatial models from camera data</li>
+                <li>• <span className="text-blue-400">Auditory Visualization:</span> Converts spatial data into immersive binaural soundscapes</li>
               </ul>
             </div>
             
@@ -83,15 +83,16 @@ const Home = ({ setCurrentPage }) => {
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                   <div>
-                    <h4 className="text-white font-semibold">LiDAR Module</h4>
-                    <p className="text-gray-400">Environmental scanning and mapping</p>
+                    <h4 className="text-white font-semibold">Ultrasonic Module</h4>
+                    <h4 className="text-white font-semibold">Vibration Module</h4>
+                    <p className="text-gray-400">Environmental scanning and AI depth estimation</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                   <div>
                     <h4 className="text-white font-semibold">Microcontroller/Processor</h4>
-                    <p className="text-gray-400">Handles LiDAR data and 3D mesh generation</p>
+                    <p className="text-gray-400">Handles camera data and 3D mesh generation</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -117,7 +118,6 @@ const Home = ({ setCurrentPage }) => {
                 </div>
               </div>
             </div>
-
             {/* Software Components */}
             <div className="bg-gray-900 border border-gray-800 rounded-lg p-8">
               <h2 className="text-3xl font-bold text-white mb-6">💻 Software Components</h2>
@@ -125,8 +125,15 @@ const Home = ({ setCurrentPage }) => {
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div>
-                    <h4 className="text-white font-semibold">3D Mesh Processing</h4>
-                    <p className="text-gray-400">Real-time spatial models with minimal latency</p>
+                    <h4 className="text-white font-semibold">OpenCV & MiDaS AI Depth Estimation</h4>
+                    <p className="text-gray-400">Real-time monocular depth maps and obstacle detection</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                  <div>
+                    <h4 className="text-white font-semibold">Open3D Mesh Processing</h4>
+                    <p className="text-gray-400">Dynamic 3D spatial models with minimal latency</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
