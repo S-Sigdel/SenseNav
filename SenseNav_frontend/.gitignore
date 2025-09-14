@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Backend Python environment and dependencies
+../SenseNav_backend/venv/
+../SenseNav_backend/__pycache__/
+../SenseNav_backend/**/__pycache__/
+../SenseNav_backend/*.pyc
+../SenseNav_backend/**/*.pyc
+../SenseNav_backend/.env
+../SenseNav_backend/.pytest_cache/
