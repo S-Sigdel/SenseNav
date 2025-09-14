@@ -400,7 +400,7 @@ const Visualization = () => {
           </section>
 
           {/* Navigation Music Box Section */}
-          {/* <NavigationMusicBox modelPath="/models/soundhead.glb" /> */}
+          <NavigationMusicBox modelPath="/models/soundhead.glb" />
           {/* Directed Obstacle Direction & Audio Generation Section */}
           <section className="bg-gray-900 border border-gray-800 rounded-lg p-6">
             <h2 className="text-high mb-4 text-white">🎯 Directed Obstacle Direction</h2>
