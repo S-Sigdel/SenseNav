@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import humanBodyImage from '../assets/human body imagecut.png';
+import SpatialAudioVisualization from '../components/SpatialAudioVisualization';
 import NavigationMusicBox from '../components/NavigationMusicBox';
 
 const Visualization = () => {
@@ -22,6 +23,7 @@ const Visualization = () => {
         </header>
         
         <main>
+
           {/* Live Video Feeds Section */}
           <section className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-high mb-4 text-white">Live Video Feeds</h2>
@@ -178,6 +180,32 @@ const Visualization = () => {
 
           {/* Navigation Music Box Section */}
           <NavigationMusicBox modelPath="/models/soundhead.glb" />
+          {/* Navigation Status Section */}
+            <section className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+            <h2 className="text-high mb-4 text-white">Navigation Status</h2>
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-gray-700 rounded-lg p-3 text-center">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full mx-auto mb-2"></div>
+                  <p className="text-white text-xs font-semibold">System Ready</p>
+                  <p className="text-gray-400 text-xs">Active</p>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-3 text-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
+                  <p className="text-white text-xs font-semibold">Navigation Active</p>
+                  <p className="text-gray-400 text-xs">Tracking</p>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-3 text-center">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full mx-auto mb-2"></div>
+                  <p className="text-white text-xs font-semibold">Audio Feedback</p>
+                  <p className="text-gray-400 text-xs">Enabled</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Spatial Audio Detection Section */}
+          <SpatialAudioVisualization />
         </main>
       </div>
     </div>
