@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import os from 'os'
 
-const keyPath = './localhost+3-key.pem'
-const certPath = './localhost+3.pem'
+const keyPath = './localhost+2-key.pem'
+const certPath = './localhost+2.pem'
 
 // Find your Mac's LAN IP for the phone to connect to
 function getLANIP() {

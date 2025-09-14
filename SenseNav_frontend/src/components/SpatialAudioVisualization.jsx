@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const SpatialAudioVisualization = ({ centroidData }) => {
   const [spatialData, setSpatialData] = useState(null);
@@ -7,6 +8,9 @@ const SpatialAudioVisualization = ({ centroidData }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioContext, setAudioContext] = useState(null);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
+  const [useSunoAPI, setUseSunoAPI] = useState(true);
+  const [currentAudio, setCurrentAudio] = useState(null);
+  const [currentOscillators, setCurrentOscillators] = useState([]);
 
   // Initialize audio context
   useEffect(() => {
@@ -21,6 +25,30 @@ const SpatialAudioVisualization = ({ centroidData }) => {
     };
     initAudio();
   }, []);
+
+  // Stop current audio
+  const stopAudio = () => {
+    // Stop HTML audio element
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+    }
+    
+    // Stop all Web Audio API oscillators
+    currentOscillators.forEach(oscillator => {
+      try {
+        oscillator.stop();
+        oscillator.disconnect();
+      } catch (e) {
+        // Oscillator might already be stopped
+      }
+    });
+    setCurrentOscillators([]);
+    
+    setIsPlayingAudio(false);
+    setSelectedTestCase(null);
+  };
 
   // Debug centroid data (reduced frequency)
   useEffect(() => {
@@ -75,69 +103,69 @@ const SpatialAudioVisualization = ({ centroidData }) => {
   // Test cases for different scenarios
   const testCases = [
     {
-      id: 'close_obstacle',
-      name: 'Close Obstacle Test',
+      id: 'left_front',
+      name: 'Left Front',
+      description: 'Audio for front-left obstacle',
+      data: {
+        distance: 2.0,
+        azimuth_deg: -45.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 600, tremolo_rate: 1.0, gain: 0.7 }
+      }
+    },
+    {
+      id: 'left_back',
+      name: 'Left Back',
+      description: 'Audio for back-left obstacle',
+      data: {
+        distance: 2.5,
+        azimuth_deg: -135.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 500, tremolo_rate: 0.8, gain: 0.6 }
+      }
+    },
+    {
+      id: 'right_front',
+      name: 'Right Front',
+      description: 'Audio for front-right obstacle',
+      data: {
+        distance: 2.0,
+        azimuth_deg: 45.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 600, tremolo_rate: 1.0, gain: 0.7 }
+      }
+    },
+    {
+      id: 'right_back',
+      name: 'Right Back',
+      description: 'Audio for back-right obstacle',
+      data: {
+        distance: 2.5,
+        azimuth_deg: 135.0,
+        elevation_deg: 0.0,
+        audio_params: { frequency: 500, tremolo_rate: 0.8, gain: 0.6 }
+      }
+    },
+    {
+      id: 'close_center',
+      name: 'Close',
       description: 'High frequency, high intensity audio for nearby obstacle',
       data: {
         distance: 0.8,
         azimuth_deg: 0.0,
         elevation_deg: 0.0,
-        audio_params: { frequency: 900, tremolo_rate: 8.0, gain: 1.0 }
+        audio_params: { frequency: 900, tremolo_rate: 2.0, gain: 1.0 }
       }
     },
     {
-      id: 'far_obstacle',
-      name: 'Far Obstacle Test',
+      id: 'far_center',
+      name: 'Far',
       description: 'Low frequency, low intensity audio for distant obstacle',
       data: {
         distance: 5.0,
-        azimuth_deg: 90.0,
-        elevation_deg: 0.0,
-        audio_params: { frequency: 200, tremolo_rate: 1.5, gain: 0.3 }
-      }
-    },
-    {
-      id: 'above_obstacle',
-      name: 'Above Obstacle Test',
-      description: 'High frequency audio for overhead obstacle',
-      data: {
-        distance: 2.0,
         azimuth_deg: 0.0,
-        elevation_deg: 60.0,
-        audio_params: { frequency: 850, tremolo_rate: 4.5, gain: 0.8 }
-      }
-    },
-    {
-      id: 'below_obstacle',
-      name: 'Below Obstacle Test',
-      description: 'Low frequency audio for ground-level obstacle',
-      data: {
-        distance: 1.5,
-        azimuth_deg: 0.0,
-        elevation_deg: -30.0,
-        audio_params: { frequency: 250, tremolo_rate: 3.0, gain: 0.7 }
-      }
-    },
-    {
-      id: 'left_obstacle',
-      name: 'Left Side Test',
-      description: 'Audio panned to left side',
-      data: {
-        distance: 2.5,
-        azimuth_deg: -90.0,
         elevation_deg: 0.0,
-        audio_params: { frequency: 600, tremolo_rate: 3.8, gain: 0.6 }
-      }
-    },
-    {
-      id: 'right_obstacle',
-      name: 'Right Side Test',
-      description: 'Audio panned to right side',
-      data: {
-        distance: 2.5,
-        azimuth_deg: 90.0,
-        elevation_deg: 0.0,
-        audio_params: { frequency: 600, tremolo_rate: 3.8, gain: 0.6 }
+        audio_params: { frequency: 200, tremolo_rate: 0.5, gain: 0.3 }
       }
     }
   ];
@@ -217,6 +245,9 @@ const SpatialAudioVisualization = ({ centroidData }) => {
       const gainNode = audioContext.createGain();
       const pannerNode = audioContext.createPanner();
 
+      // Track the oscillator for stopping
+      setCurrentOscillators([oscillator]);
+
       // Set up the audio graph
       oscillator.connect(gainNode);
       gainNode.connect(pannerNode);
@@ -245,6 +276,8 @@ const SpatialAudioVisualization = ({ centroidData }) => {
       setTimeout(() => {
         setIsPlayingAudio(false);
         setSelectedTestCase(null);
+        setCurrentAudio(null);
+        setCurrentOscillators([]);
       }, 2000);
 
     } catch (error) {
@@ -270,6 +303,9 @@ const SpatialAudioVisualization = ({ centroidData }) => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       const pannerNode = audioContext.createPanner();
+
+      // Track the oscillator for stopping
+      setCurrentOscillators([oscillator]);
 
       // Set up the audio graph
       oscillator.connect(gainNode);
@@ -298,11 +334,13 @@ const SpatialAudioVisualization = ({ centroidData }) => {
       // Reset playing state after audio finishes
       setTimeout(() => {
         setIsPlayingAudio(false);
+        setCurrentOscillators([]);
       }, 2000);
 
     } catch (error) {
       console.error('Error generating obstacle audio:', error);
       setIsPlayingAudio(false);
+      setCurrentOscillators([]);
     }
   };
 
@@ -327,7 +365,7 @@ const SpatialAudioVisualization = ({ centroidData }) => {
         <div className="space-y-6">
           {/* Test Cases Section */}
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-            <h3 className="text-base font-bold text-white mb-4">🧪 Audio Test Cases</h3>
+            <h3 className="text-base font-bold text-white mb-4">Audio Test Cases</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {testCases.map((testCase) => (
                 <div key={testCase.id} className="bg-gray-700 rounded-lg p-3">
@@ -383,7 +421,9 @@ const SpatialAudioVisualization = ({ centroidData }) => {
                             : 'bg-blue-600 hover:bg-blue-700 text-white'
                         }`}
                       >
-                        🔊
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" clipRule="evenodd" />
+                        </svg>
                       </button>
                     </div>
                   </div>
