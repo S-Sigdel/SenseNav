@@ -54,11 +54,129 @@ def nearest_obstacle(points):
     closest = min(sectors.values(), key=lambda x: x[0])
     return closest
 
+def generate_boundary_points(bbox, depth_value, num_points=16):
+    """
+    Generate points ONLY along the bounding box boundary surface for spatial audio.
+    These points represent the actual surface area of the obstacle boundary.
+    
+    Args:
+        bbox: dict with 'x', 'y', 'width', 'height' (in pixels)
+        depth_value: depth value for the obstacle
+        num_points: number of points to generate around the boundary
+    
+    Returns:
+        numpy array of 3D points ONLY on the boundary surface
+    """
+    if not bbox or bbox['width'] <= 0 or bbox['height'] <= 0:
+        return np.array([])
+    
+    x, y, w, h = bbox['x'], bbox['y'], bbox['width'], bbox['height']
+    
+    # Generate points ONLY on the boundary perimeter (surface area)
+    points = []
+    
+    # Calculate points per edge (ensure we have at least 4 points total)
+    points_per_edge = max(1, num_points // 4)
+    
+    # Top edge (y = y, x varies from x to x+w)
+    for i in range(points_per_edge):
+        if points_per_edge == 1:
+            px = x + w/2  # Center of top edge
+        else:
+            px = x + (w * i / (points_per_edge - 1))
+        points.append([px, y, depth_value])
+    
+    # Right edge (x = x+w, y varies from y to y+h)
+    for i in range(points_per_edge):
+        if points_per_edge == 1:
+            py = y + h/2  # Center of right edge
+        else:
+            py = y + (h * i / (points_per_edge - 1))
+        points.append([x + w, py, depth_value])
+    
+    # Bottom edge (y = y+h, x varies from x+w to x)
+    for i in range(points_per_edge):
+        if points_per_edge == 1:
+            px = x + w/2  # Center of bottom edge
+        else:
+            px = x + w - (w * i / (points_per_edge - 1))
+        points.append([px, y + h, depth_value])
+    
+    # Left edge (x = x, y varies from y+h to y)
+    for i in range(points_per_edge):
+        if points_per_edge == 1:
+            py = y + h/2  # Center of left edge
+        else:
+            py = y + h - (h * i / (points_per_edge - 1))
+        points.append([x, py, depth_value])
+    
+    return np.array(points)
+
+def process_boundary_obstacle(bbox, depth_value, image_width, image_height, focal_length=None):
+    """
+    Process obstacle boundary data and return spatial audio information.
+    Audio will ONLY come from the boundary surface area points.
+    
+    Args:
+        bbox: dict with 'x', 'y', 'width', 'height' (in pixels)
+        depth_value: depth value for the obstacle
+        image_width: width of the image
+        image_height: height of the image
+        focal_length: focal length for 3D projection (optional)
+    
+    Returns:
+        dict with spatial audio information ONLY for boundary surface points
+    """
+    if not bbox or bbox['width'] <= 0 or bbox['height'] <= 0:
+        return {"obstacles": {}, "targets": [], "message": "Invalid bounding box"}
+    
+    # Generate boundary surface points ONLY
+    boundary_points = generate_boundary_points(bbox, depth_value, num_points=16)
+    
+    if boundary_points.size == 0:
+        return {"obstacles": {}, "targets": [], "message": "No boundary surface points generated"}
+    
+    # Convert pixel coordinates to 3D coordinates
+    # Assuming camera is at origin looking down +Z axis
+    if focal_length is None:
+        focal_length = max(image_width, image_height)  # Simple focal length estimate
+    
+    # Convert to 3D coordinates (camera coordinate system)
+    # X: left-right, Y: up-down, Z: depth
+    cx, cy = image_width / 2, image_height / 2
+    
+    # Convert pixel coordinates to normalized coordinates, then to 3D
+    # ONLY using boundary surface points
+    normalized_points = boundary_points.copy()
+    normalized_points[:, 0] = (boundary_points[:, 0] - cx) / focal_length  # X
+    normalized_points[:, 1] = (boundary_points[:, 1] - cy) / focal_length  # Y
+    normalized_points[:, 2] = depth_value  # Z (depth)
+    
+    # Find nearest obstacles by sector using ONLY boundary surface points
+    obstacles = nearest_by_sector(normalized_points, ignore_behind=False)
+    
+    if not obstacles:
+        return {"obstacles": {}, "targets": [], "message": "No obstacles detected in boundary surface"}
+    
+    # Generate spatial audio layers from boundary surface points ONLY
+    layers = spatial_layers_from_pointcloud(normalized_points)
+    
+    # Choose targets for audio generation from boundary surface
+    targets = choose_targets(obstacles, max_targets=3)
+    
+    return {
+        "obstacles": obstacles,
+        "targets": targets,
+        "layers": layers,
+        "boundary_surface_points": len(boundary_points),
+        "message": f"Processed {len(boundary_points)} boundary surface points ONLY"
+    }
+
 # ---------- cue mapping ----------
 def distance_to_params(r, r_min=0.3, r_max=4.0):
     r = np.clip(r, r_min, r_max)
     # closer -> higher beep rate, higher pitch, louder
-    rate_hz = np.interp(r, [r_min, r_max], [6.0, 1.0])   # beeps per second
+    rate_hz = np.interp(r, [r_min, r_max], [2.0, 0.5])   # reduced beep rate (less pulsing)
     freq_hz = np.interp(r, [r_min, r_max], [800, 300])   # reduced pitch range
     gain    = np.interp(r, [r_min, r_max], [0.9, 0.4])
     return rate_hz, freq_hz, gain
@@ -144,9 +262,9 @@ def tone_left(freq, dur=0.5, fs=48000):
     t = np.linspace(0, dur, int(fs*dur), endpoint=False)
     # Sawtooth-like wave with warm harmonics
     tone = np.sin(2*np.pi*freq*t)
-    for h in range(2, 6):
-        tone += (0.3/h) * np.sin(2*np.pi*freq*h*t)
-    tone *= 0.4
+    for h in range(2, 4):  # reduced harmonics for cleaner sound
+        tone += (0.2/h) * np.sin(2*np.pi*freq*h*t)  # reduced harmonic strength
+    tone *= 0.5  # slightly louder
     return apply_fade(tone, fs)
 
 def tone_right(freq, dur=0.5, fs=48000):
@@ -154,17 +272,16 @@ def tone_right(freq, dur=0.5, fs=48000):
     t = np.linspace(0, dur, int(fs*dur), endpoint=False)
     # Square wave approximation with odd harmonics
     tone = np.sin(2*np.pi*freq*t)
-    for h in range(3, 10, 2):  # odd harmonics only
-        tone += (0.4/h) * np.sin(2*np.pi*freq*h*t)
-    tone *= 0.3
+    for h in range(3, 6, 2):  # reduced odd harmonics for cleaner sound
+        tone += (0.25/h) * np.sin(2*np.pi*freq*h*t)  # reduced harmonic strength
+    tone *= 0.4  # slightly louder
     return apply_fade(tone, fs)
 
 def tone_up(freq, dur=0.5, fs=48000):
-    """Up sector tone - ascending chirp"""
+    """Up sector tone - constant frequency with sparkly harmonics"""
     t = np.linspace(0, dur, int(fs*dur), endpoint=False)
-    # Frequency sweep upward
-    freq_sweep = freq * (1 + 0.3 * t / dur)  # 30% frequency increase
-    phase = 2*np.pi * np.cumsum(freq_sweep) / fs
+    # Constant frequency (no sweep)
+    phase = 2*np.pi * freq * t
     tone = np.sin(phase)
     # Add sparkly harmonics
     tone += 0.2 * np.sin(phase * 2) + 0.1 * np.sin(phase * 4)
@@ -407,16 +524,16 @@ def spatial_layers_from_pointcloud(points, fs=48000, dur=8.0, ignore_behind=Fals
         rate, f, g = distance_to_params(r)
 
         if name == "FL":
-            sig = tremolo(tone_left(f, dur, fs), fs, rate) * g
-            sig = add_vibrato(sig, fs, rate=3.5)  # Gentle vibrato for FL
+            sig = tremolo(tone_left(f, dur, fs), fs, rate * 0.3) * g  # reduced tremolo
+            sig = add_vibrato(sig, fs, rate=2.0, depth=0.1)  # reduced vibrato
         elif name == "FR":
-            sig = tremolo(tone_right(f, dur, fs), fs, rate) * g
-            sig = add_chorus(sig, fs, delay_ms=12)  # Chorus for FR distinction
+            sig = tremolo(tone_right(f, dur, fs), fs, rate * 0.3) * g  # reduced tremolo
+            sig = add_chorus(sig, fs, delay_ms=8, depth=0.2)  # reduced chorus
         elif name == "BL":
-            sig = tremolo(tone_left(0.9*f, dur, fs), fs, 0.8*rate) * (0.9*g)
+            sig = tremolo(tone_left(0.9*f, dur, fs), fs, 0.3*rate) * (0.9*g)  # reduced tremolo
             sig = darken(sig, fs, cutoff=900)
         elif name == "BR":
-            sig = tremolo(tone_right(0.85*f, dur, fs), fs, 0.7*rate) * (0.85*g)
+            sig = tremolo(tone_right(0.85*f, dur, fs), fs, 0.3*rate) * (0.85*g)  # reduced tremolo
             sig = darken(sig, fs, cutoff=700)
         elif name == "UP":
             sig = tone_up(max(f, 500), dur, fs) * (0.9*g)
