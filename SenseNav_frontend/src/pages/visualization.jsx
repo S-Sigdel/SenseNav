@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import humanBodyImage from '../assets/human body imagecut.png';
+import NavigationMusicBox from '../components/NavigationMusicBox';
 
 const Visualization = () => {
   // State to track which wristbands are active (for demo purposes)
@@ -174,6 +175,9 @@ const Visualization = () => {
               </div>
             </div>
           </section>
+
+          {/* Navigation Music Box Section */}
+          <NavigationMusicBox modelPath="/models/soundhead.glb" />
         </main>
       </div>
     </div>
