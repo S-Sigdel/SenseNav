@@ -1,0 +1,5 @@
+numpy==1.24.3
+scipy==1.11.1
+sounddevice==0.4.6
+flask==2.3.2
+flask-cors==4.0.0
